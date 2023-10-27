@@ -7,6 +7,15 @@ Mas gostaria de lembrar que este é um repositório voltado para ter insumos suf
 
 s2
 
+## Contexto do Laboratório
+Imagine que uma empresa que possui itens para aluguel (salas, galpões, apartamentos, casas, etc) gostaria de visualizar a projeção da evolução dos valores dos alugueis dos seus itens no decorrer dos próximos 10 anos.
+Essa projeção é feita em cima de alguns indicadores financeiros, como por exemplo IPCA e IGPM.
+
+Então vamos construir esse laboratório a fim de disponibilizar um dashboard similar ao do link, para disponibilizar essa visão da projeção para essa empresa.
+
+URL do painel:
+https://app.fabric.microsoft.com/links/onJCAVvpCJ?ctid=95d27196-39a3-465b-9e4c-ea4b4232215d&pbi_source=linkShare&bookmarkGuid=cc7a333b-0874-4cc3-b1e0-a641fb5b2c31 
+
 
 ## Passo a passo para executar o mão na massa
 
@@ -19,7 +28,7 @@ Acesse o Microsoft Fabric em https://app.fabric.microsoft.com/, crie um novo Wor
 
     a. Dê um nome a ele. Ex: dfReceitas.
 
-	PS: Você pode seguir os passos abaixo ou pode importar o arquivo dfReceitas.pqt dentro do power query e então realizar o ajuste dos apontamentos de leitura do arquivo e recriar o passo 3 de direcionar o destino dos dados.
+	PS: Você pode seguir os passos abaixo ou pode importar o arquivo dfReceitas.pqt na tela inicial do DataFlow - opção "Importar de um modelo do Power Query". Neste caso bastará corrigir os apontamentos das origens dos dados para o seu Lakehouse.
 
 	Ou, siga os passos abaixo dentro do fluxo de dados:
 
@@ -40,114 +49,14 @@ Acesse o Microsoft Fabric em https://app.fabric.microsoft.com/, crie um novo Wor
 5. Crie um notebook para criar dados da inflação lendo da API do banco central
 
     a. notebookBC_Inflacao
-	
-	- Crie duas células e cole o código abaixo. Backup do notebook também no arquivo "notebookBC_Inflacao.ipynb"
-
-        
-        ```python
-        # Lendo API do Banco Central para pegar os indicadores de Inflação dos últimos anos, calcular médias anuais e gravar em uma tabela no Lakehouse
-        import requests
-        import pandas as pd
-        
-        tabela_final = pd.DataFrame()
-        pular_indice = 0
-        tamanho_pagina = 100000
-        
-        while True:
-            urlBase = f"https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoInflacao12Meses?$top={tamanho_pagina}&$skip={pular_indice}&$filter=Suavizada%20eq%20'S'&$format=json"
-            print(urlBase)
-        
-            requisicao = requests.get(urlBase)
-            informacoes = requisicao.json()
-            tabela = pd.DataFrame(informacoes["value"])
-            
-            if len(informacoes['value']) < 1:
-                break
-        
-            tabela_final = pd.concat([tabela_final, tabela])
-            pular_indice += tamanho_pagina
-        
-        # display(tabela_final)
-        
-        # Filtrando dataFrame
-        df_filtrado = tabela_final[tabela_final['baseCalculo'] == 0][['Indicador', 'Data', 'Media']]
-        
-        # Cria coluna Ano
-        df_filtrado['Data'] = pd.to_datetime(df_filtrado['Data'])
-        df_filtrado['Ano'] = df_filtrado['Data'].dt.year
-        
-        # Agrupa Indicador e Ano para calcular a MediaAnual
-        media_por_ano = df_filtrado.groupby(['Indicador', 'Ano'])['Media'].mean().reset_index()
-        media_por_ano = media_por_ano.rename(columns={'Media': 'MediaAnual'})
-        display(media_por_ano)
-        
-        #Converte dataframe pandas para spark
-        dfMediaPorAno = spark.createDataFrame(media_por_ano)
-        
-        # Salva tabela de médias dos indicadores por ano
-        # nome_tabela = "BC_Inflacao_Anual"
-        # spark_df.write.mode("overwrite").format("delta").save("Tables/" + nome_tabela)
-        ```
-        
-        ```python
-        # Criando a predição dos indicadores para os próximos 10 anos e salvando em tabela
-        
-        import numpy as np
-        from sklearn.linear_model import LinearRegression
-        
-        # Lista para armazenar os resultados
-        predicoes = []
-        
-        # Iterar sobre cada indicador único
-        for indicador in media_por_ano['Indicador'].unique():
-            
-            # Filtrar os dados para o indicador atual
-            subset = media_por_ano[media_por_ano['Indicador'] == indicador]
-            
-            # Preparar os dados
-            X = subset['Ano'].values.reshape(-1, 1)  # Ano como variável independente
-            y = subset['MediaAnual'].values           # Média Anual como variável dependente
-            
-            # Treinar o modelo
-            model = LinearRegression().fit(X, y)
-            
-            # Prever para os próximos 10 anos
-            anos_futuros = np.array(range(X[-1][0] + 1, X[-1][0] + 11)).reshape(-1, 1)
-            predicoes_futuras = model.predict(anos_futuros)
-            
-            # Adicionar as predições à lista
-            for ano, predicao in zip(anos_futuros, predicoes_futuras):
-                predicoes.append({
-                    'Indicador': indicador,
-                    'Ano': ano[0],
-                    'MediaAnualPredita': predicao
-                })
-        
-        # Converter a lista de predições para um DataFrame
-        df_predicoes = pd.DataFrame(predicoes)
-        
-        # Converte dataframe pandas para spark
-        dfPredicoes = spark.createDataFrame(df_predicoes)
-        
-        # Salvando tabela com as predições dos próximos anos
-        # nome_tabela = "BC_Inflacao_Predicoes"
-        # spark_df.write.mode("overwrite").format("delta").save("Tables/" + nome_tabela)
-        
-        display(df_predicoes)
-        ```
-        
-        ```python
-        # Unindo dataFrames e salvando no Lakehouse como tabela
-        dfInflacao = dfMediaPorAno.union(dfPredicoes)
-        display(dfInflacao)
-        
-        # Salvando tabela com as predições dos próximos anos
-        nome_tabela = "BC_Inflacao"
-        dfInflacao.write.mode("overwrite").format("delta").save("Tables/" + nome_tabela)
-        ```
-        
+	- O código está no arquivo notebookBC_Inflacao.ipynb
+	- Este código vai fazer a leitura do histórico dos indicadores da API do Banco Central, vai tratar, gerar as médias anuais do histórico, filtar por IPCA e IGPM (que é o foco da POC) e realizar a execução de um script de predição de valores para os próximos 10 anos. E por fim vai salvar a tabela gerada no lakehouse na tabela BC_Inflacao.
+	    
 6. Criar mais um data flow, este é para carregar os dados do lakehouse para o datawarehouse. Nome ex: dfLoadToDW
-    1. Carregar as 4 tabelas do lakehouse - Setores, ,Itens, IndicadorPorItem, Inflacao
+	
+	PS: Pode seguir os passos abaixo, ou pode importar o arquivo dfLoadToDW.pqt na tela inicial do DataFlow - opção "Importar de um modelo do Power Query". Neste caso bastará corrigir os apontamentos das origens dos dados para o seu Lakehouse.
+    
+	1. Carregar as 4 tabelas do lakehouse - Setores, ,Itens, IndicadorPorItem, BC_Inflacao
     2. Consulta: IndicadorPorItem
         1. Remover linhas em branco
         2. Remover coluna Codigo
@@ -203,3 +112,13 @@ Acesse o Microsoft Fabric em https://app.fabric.microsoft.com/, crie um novo Wor
 
 
 Tudo pronto pra consumir num relatório do Power BI :) 
+-------------
+
+PS: O arquivo notebookPreencheProjecoes.ipynb, é um notebook que eu tinha feito antes de seguir o caminho de criar a medida da projeção acumulada em DAX. Este script realiza a junção dos dataframes que representam Itens, IndicadoresPorItem e BC_Inflacao e realiza o cálculo do valor projetado dos anos futuros.
+
+-------------
+
+Aproveito para deixar também o link das documentações da Microsoft que podem te ajudar muito nos estudos do Microsoft Fabric.
+
+- https://learn.microsoft.com/pt-br/fabric/
+- https://learn.microsoft.com/pt-br/fabric/get-started/end-to-end-tutorials
