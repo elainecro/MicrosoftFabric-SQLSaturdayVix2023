@@ -3,6 +3,10 @@ Arquivos utilizados no mão na massa do SQL Saturday Vix 2023 - Iniciando sua f�
 
 Em caso de dúvida, chama no linkedin: https://www.linkedin.com/in/elainecro/ 
 
+Mas gostaria de lembrar que este é um repositório voltado para ter insumos suficientes para demonstrar as ferramentas disponibilizadas no Microsoft Fabric. O foco não é ter o melhor script python e nem a melhor medida DAX. 
+
+s2
+
 
 ## Passo a passo para executar o mão na massa
 
